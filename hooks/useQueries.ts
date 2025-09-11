@@ -624,18 +624,43 @@ export const useDenomAuthorityMetadata = (denom: string) => {
 export const useTokenFactoryDenomsMetadata = () => {
   const { lcdQueryClient } = useLcdQueryClient();
 
-  const fetchDenoms = async () => {
+  const fetchAllDenoms = async () => {
     if (!lcdQueryClient) {
       throw new Error('LCD Client not ready');
     }
 
-    return await lcdQueryClient.cosmos.bank.v1beta1.denomsMetadata({});
+    let allMetadatas: any[] = [];
+    let nextKey: Uint8Array | undefined = undefined;
+
+    // Fetch all pages of metadata
+    do {
+      const paginationOptions: any = {
+        limit: BigInt(1000), // Request more per page to reduce API calls
+      };
+
+      if (nextKey) {
+        paginationOptions.key = nextKey;
+      }
+
+      const response = await lcdQueryClient.cosmos.bank.v1beta1.denomsMetadata({
+        pagination: paginationOptions,
+      });
+
+      if (response.metadatas) {
+        allMetadatas = allMetadatas.concat(response.metadatas);
+      }
+
+      nextKey = response.pagination?.next_key;
+    } while (nextKey && nextKey.length > 0);
+
+    return { metadatas: allMetadatas };
   };
 
   const denomsQuery = useQuery({
     queryKey: ['allMetadatas'],
-    queryFn: fetchDenoms,
+    queryFn: fetchAllDenoms,
     enabled: !!lcdQueryClient,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes since metadata doesn't change often
   });
 
   return {
