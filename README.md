@@ -40,6 +40,8 @@ NEXT_PUBLIC_OSMOSIS_RPC_URL=
 NEXT_PUBLIC_OSMOSIS_API_URL=
 NEXT_PUBLIC_OSMOSIS_EXPLORER_URL=
 NEXT_PUBLIC_LEAP_DEEPLINK=
+NEXT_PUBLIC_UPGRADE_MIN_BLOCK_OFFSET=
+
 ```
 
 where
@@ -58,6 +60,8 @@ where
 - `NEXT_PUBLIC_OSMOSIS_RPC_URL` is the osmosis RPC URL
 - `NEXT_PUBLIC_OSMOSIS_API_URL` is the osmosis API URL
 - `NEXT_PUBLIC_OSMOSIS_EXPLORER_URL` is the osmosis block explorer URL
+- `NEXT_PUBLIC_LEAP_DEEPLINK` is the leap deeplink
+- `NEXT_PUBLIC_UPGRADE_MIN_BLOCK_OFFSET` sets how many blocks in the future a chain upgrade height must be from the current block.
 
 ### Development
 

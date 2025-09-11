@@ -49,6 +49,8 @@ const parseReleaseBody = (body: string): UpgradeInfo | null => {
   }
 };
 
+const UPGRADE_MIN_BLOCK_OFFSET = env.upgradeMinBlockOffset ?? 1000;
+
 const UpgradeSchema = Yup.object().shape({
   height: Yup.number()
     .typeError('Height must be a number')
@@ -56,7 +58,7 @@ const UpgradeSchema = Yup.object().shape({
     .integer('Must be a valid number')
     .test(
       'min-height',
-      'Height must be at least 1000 blocks above current height',
+      `Height must be at least ${UPGRADE_MIN_BLOCK_OFFSET} blocks above current height`,
       function (inputHeight) {
         const proposedHeight = Number(inputHeight);
         const chainHeight = Number(this.options.context?.chainData?.currentHeight || 0);
@@ -65,7 +67,7 @@ const UpgradeSchema = Yup.object().shape({
           return false;
         }
 
-        const minimumAllowedHeight = chainHeight + 1000;
+        const minimumAllowedHeight = chainHeight + UPGRADE_MIN_BLOCK_OFFSET;
 
         return proposedHeight >= minimumAllowedHeight;
       }
