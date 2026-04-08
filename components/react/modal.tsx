@@ -282,7 +282,15 @@ export const TailwindModal: React.FC<
         return;
       }
 
-      // Step 4: We do a small setTimeout to check for metamask extension error
+      // Step 4: Web3Auth social wallets (google, apple, etc.) don't have browser
+      // extensions, so skip the NotExist check and connect directly.
+      const isWeb3AuthWallet = name.startsWith('web3auth_');
+      if (isWeb3AuthWallet) {
+        handleStandardWalletFlow(wallet, name);
+        return;
+      }
+
+      // Step 5: We do a small setTimeout to check for metamask extension error
       // or if the wallet doesn't exist. This ensures the error message has time
       // to populate in the wallet's state after calling `getWallet()`.
       setTimeout(() => {
@@ -290,13 +298,13 @@ export const TailwindModal: React.FC<
           return;
         }
 
-        // Step 5: If the wallet is "wallet-connect" style, handle phone vs. desktop flows
+        // Step 6: If the wallet is "wallet-connect" style, handle phone vs. desktop flows
         if (wallet?.walletInfo.mode === 'wallet-connect') {
           handleWalletConnectFlow(wallet, name);
           return;
         }
 
-        // Step 6: Otherwise, handle standard extension or browser-based wallet
+        // Step 7: Otherwise, handle standard extension or browser-based wallet
         handleStandardWalletFlow(wallet, name);
       }, 0);
     },
