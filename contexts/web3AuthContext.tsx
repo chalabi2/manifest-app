@@ -54,7 +54,9 @@ export const Web3AuthProvider = ({ children }: { children: ReactNode }) => {
     if (typeof navigator !== 'undefined') {
       const mobile = navigator.userAgentData
         ? navigator.userAgentData.mobile
-        : /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        : /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+            navigator.userAgent
+          );
       setIsMobile(mobile);
     }
   }, []);
