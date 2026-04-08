@@ -283,10 +283,14 @@ export const TailwindModal: React.FC<
       }
 
       // Step 4: Web3Auth social wallets (google, apple, etc.) don't have browser
-      // extensions, so skip the NotExist check and connect directly.
+      // extensions. Close the modal and let the Web3Auth SDK handle its own
+      // popup/redirect UI for authentication.
       const isWeb3AuthWallet = name.startsWith('web3auth_');
       if (isWeb3AuthWallet) {
-        handleStandardWalletFlow(wallet, name);
+        setOpen(false);
+        walletRepo?.connect(name).catch(error => {
+          console.error('Wallet connection error:', error);
+        });
         return;
       }
 
