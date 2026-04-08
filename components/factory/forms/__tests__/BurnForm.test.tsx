@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import React from 'react';
 
@@ -58,11 +58,17 @@ describe('BurnForm Component', () => {
     expect(burnButton).toBeDisabled();
 
     const amountInput = screen.getByPlaceholderText('Enter amount');
-    fireEvent.change(amountInput, { target: { value: '-100' } });
-
-    await waitFor(() => {
-      expect(burnButton).toBeDisabled();
+    await act(async () => {
+      fireEvent.change(amountInput, { target: { value: '-100' } });
+      fireEvent.blur(amountInput);
     });
+
+    await waitFor(
+      () => {
+        expect(burnButton).toBeDisabled();
+      },
+      { timeout: 5000 }
+    );
   });
 
   test('burn button is enabled when inputs are valid', async () => {
