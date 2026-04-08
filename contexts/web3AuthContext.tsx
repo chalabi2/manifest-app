@@ -6,6 +6,7 @@ import {
   makeWeb3AuthWallets,
 } from '@cosmos-kit/web3auth';
 import { WEB3AUTH_NETWORK_TYPE } from '@web3auth/auth';
+import { UX_MODE } from '@web3auth/modal';
 import { wallets as cosmosWallets } from 'cosmos-kit';
 import { ReactNode, createContext, useCallback, useMemo, useState } from 'react';
 
@@ -120,6 +121,19 @@ export const Web3AuthProvider = ({ children }: { children: ReactNode }) => {
           web3AuthNetwork: env.web3AuthNetwork as WEB3AUTH_NETWORK_TYPE, // Safe to cast since we validate the env vars in config/env.ts
           sessionTime: 60 * 60 * 24 * 7, // 7 days in s
           mfaLevel: 'optional',
+          // The @cosmos-kit/web3auth library expects redirect mode on mobile (to avoid
+          // popup blocking on Safari/iOS) but doesn't pass the uxMode to the Web3Auth
+          // modal constructor. Set it here so the auth connector uses redirect flow
+          // when the library detects a mobile device at connection time.
+          uiConfig: {
+            uxMode:
+              typeof window !== 'undefined' &&
+              /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+                navigator.userAgent
+              )
+                ? UX_MODE.REDIRECT
+                : UX_MODE.POPUP,
+          },
         },
         promptSign: async (_, signData) =>
           new Promise(resolve =>
@@ -164,7 +178,7 @@ export const Web3AuthProvider = ({ children }: { children: ReactNode }) => {
 
       await Promise.all(disconnectPromises);
     } catch (error) {
-      console.error('❌ Error resetting Web3Auth clients:', error);
+      console.error('\u274c Error resetting Web3Auth clients:', error);
     }
   }, [web3AuthWallets]);
 
