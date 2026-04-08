@@ -6,9 +6,8 @@ import {
   makeWeb3AuthWallets,
 } from '@cosmos-kit/web3auth';
 import { WEB3AUTH_NETWORK_TYPE } from '@web3auth/auth';
-import { UX_MODE } from '@web3auth/modal';
 import { wallets as cosmosWallets } from 'cosmos-kit';
-import { ReactNode, createContext, useCallback, useEffect, useMemo, useState } from 'react';
+import { ReactNode, createContext, useCallback, useMemo, useState } from 'react';
 
 import env from '@/config/env';
 
@@ -47,19 +46,6 @@ export const Web3AuthProvider = ({ children }: { children: ReactNode }) => {
     | undefined
   >();
   const [promptId, setPromptId] = useState<string>();
-
-  // Detect mobile to configure Web3Auth redirect mode (popups are blocked on mobile Safari)
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    if (typeof navigator !== 'undefined') {
-      const mobile = navigator.userAgentData
-        ? navigator.userAgentData.mobile
-        : /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-            navigator.userAgent
-          );
-      setIsMobile(mobile);
-    }
-  }, []);
 
   // A shared signing state for all nodes.
   const [isSigning, setIsSigningInternal] = useState(false);
@@ -134,10 +120,6 @@ export const Web3AuthProvider = ({ children }: { children: ReactNode }) => {
           web3AuthNetwork: env.web3AuthNetwork as WEB3AUTH_NETWORK_TYPE, // Safe to cast since we validate the env vars in config/env.ts
           sessionTime: 60 * 60 * 24 * 7, // 7 days in s
           mfaLevel: 'optional',
-          // On mobile, use redirect mode to avoid popup blocking (especially on Safari/iOS).
-          // The @cosmos-kit/web3auth library expects redirect mode on mobile but doesn't
-          // pass it to the Web3Auth constructor, so we set it explicitly here.
-          ...(isMobile ? { uiConfig: { uxMode: UX_MODE.REDIRECT } } : {}),
         },
         promptSign: async (_, signData) =>
           new Promise(resolve =>
@@ -150,7 +132,7 @@ export const Web3AuthProvider = ({ children }: { children: ReactNode }) => {
             })
           ),
       }),
-    [isMobile]
+    []
   );
 
   /**
