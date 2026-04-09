@@ -15,11 +15,15 @@
  * the onWalletClicked() function (which is the main handler for selecting / connecting to wallets).
  */
 import { State } from '@cosmos-kit/core';
-import { Web3AuthClient, Web3AuthWallet } from '@cosmos-kit/web3auth';
+import {
+  WEB3AUTH_REDIRECT_AUTO_CONNECT_KEY,
+  Web3AuthClient,
+  Web3AuthWallet,
+} from '@cosmos-kit/web3auth';
 import { Dialog, Portal, Transition } from '@headlessui/react';
 import type { ChainWalletBase, WalletModalProps } from 'cosmos-kit';
 import { WalletStatus } from 'cosmos-kit';
-import React, { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ToastProvider } from '@/contexts/toastContext';
 import { useDeviceDetect } from '@/hooks';
@@ -54,6 +58,8 @@ const WALLET_ERRORS = {
   RECORD_DELETED: 'Record was recently deleted',
 } as const;
 
+const isWeb3AuthWallet = (name: string): boolean => name.startsWith('web3auth_');
+
 /**
  * Helper to check if an error message matches known wallet connection errors
  */
@@ -78,17 +84,36 @@ export const TailwindModal: React.FC<
   const [qrState, setQRState] = useState<State>(State.Init);
   const [qrMessage, setQrMessage] = useState<string>('');
 
+  // Track which wallet the user clicked, independent of walletRepo.current.
+  // walletRepo.current filters out Disconnected/NotExist wallets, so it becomes
+  // undefined before connect() transitions the state, and for web3auth wallets
+  // that cosmos-kit flags as NotExist (since they have mode:'extension' but no real extension).
+  const clickedWalletRef = useRef<ChainWalletBase | undefined>(undefined);
+
   const current = walletRepo?.current;
-  const currentWalletData = current?.walletInfo;
+  const currentWalletData = current?.walletInfo ?? clickedWalletRef.current?.walletInfo;
   const walletStatus = current?.walletStatus || WalletStatus.Disconnected;
-  const currentWalletName = current?.walletName;
+  const currentWalletName = current?.walletName ?? clickedWalletRef.current?.walletName;
   const { isMobile } = useDeviceDetect();
   const { forceCompleteReset } = useClientReset();
+
+  // After a Web3Auth redirect login on mobile, the page reloads.
+  // Detect the localStorage key and open the modal while auto-reconnect runs.
+  useEffect(() => {
+    if (localStorage.getItem(WEB3AUTH_REDIRECT_AUTO_CONNECT_KEY) && !isOpen) {
+      setCurrentView(ModalView.Connecting);
+      setOpen(true);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (isOpen) {
       switch (walletStatus) {
         case WalletStatus.Disconnected:
+          // Don't reset to WalletList during a Web3Auth redirect auto-reconnect
+          if (localStorage.getItem(WEB3AUTH_REDIRECT_AUTO_CONNECT_KEY)) {
+            break;
+          }
           setCurrentView(ModalView.WalletList);
           break;
         case WalletStatus.Connecting:
@@ -108,6 +133,12 @@ export const TailwindModal: React.FC<
           setCurrentView(ModalView.Error);
           break;
         case WalletStatus.NotExist:
+          // Web3Auth wallets falsely report NotExist because they have mode:'extension'
+          // but don't need a browser extension. Use clickedWalletRef since
+          // walletRepo.current filters out NotExist wallets (so currentWalletName is undefined).
+          if (clickedWalletRef.current && isWeb3AuthWallet(clickedWalletRef.current.walletName)) {
+            break;
+          }
           setCurrentView(ModalView.NotExist);
           break;
       }
@@ -165,6 +196,11 @@ export const TailwindModal: React.FC<
    * in the standard wallet flow. We force set the view to NotExist if we detect the error message.
    */
   const handleWalletNotExists = (wallet: ChainWalletBase) => {
+    // Web3Auth wallets register with mode:'extension' but don't need a browser
+    // extension — cosmos-kit incorrectly flags them as NotExist.
+    if (isWeb3AuthWallet(wallet.walletName)) {
+      return false;
+    }
     if (wallet?.isWalletNotExist) {
       setCurrentView(ModalView.NotExist);
       setSelectedWallet(wallet);
@@ -265,13 +301,16 @@ export const TailwindModal: React.FC<
       const wallet = walletRepo?.getWallet(name);
       if (!wallet) return;
 
+      // Track the clicked wallet so we have its info even when walletRepo.current
+      // is undefined (before connect transitions state, or for web3auth NotExist).
+      clickedWalletRef.current = wallet;
+
       // Step 1: Check for Email or SMS. If found, we set the corresponding view & exit.
       if (handleEmailOrSmsIfNeeded(wallet)) {
         return;
       }
 
-      // Step 2: Check if this is a social wallet and if we should reset clients
-      // Step 3: Special case for keplr - check immediately
+      // Step 2: Special case for keplr - check immediately
       if (
         wallet?.walletInfo.name === 'keplr-extension' &&
         typeof window !== 'undefined' &&
@@ -279,6 +318,17 @@ export const TailwindModal: React.FC<
       ) {
         setCurrentView(ModalView.NotExist);
         setSelectedWallet(wallet);
+        return;
+      }
+
+      // Step 3: Web3Auth wallets on mobile use redirect mode (the page navigates away).
+      // Close the modal and connect directly — the SDK handles the redirect.
+      // On return, the post-redirect effect will show a connecting state.
+      if (isWeb3AuthWallet(name) && isMobile) {
+        setOpen(false);
+        walletRepo?.connect(name).catch(() => {
+          // Expected: redirect interrupts the promise before the page navigates away.
+        });
         return;
       }
 
@@ -300,7 +350,14 @@ export const TailwindModal: React.FC<
         handleStandardWalletFlow(wallet, name);
       }, 0);
     },
-    [walletRepo, handleEmailOrSmsIfNeeded, handleWalletConnectFlow, handleStandardWalletFlow]
+    [
+      walletRepo,
+      handleEmailOrSmsIfNeeded,
+      handleWalletConnectFlow,
+      handleStandardWalletFlow,
+      isMobile,
+      setOpen,
+    ]
   );
 
   /**
@@ -315,6 +372,7 @@ export const TailwindModal: React.FC<
       }
       setQRState(State.Init);
       setQrMessage('');
+      clickedWalletRef.current = undefined;
     }
   }, [isOpen, qrWallet]);
 
@@ -423,26 +481,32 @@ export const TailwindModal: React.FC<
             />
           );
 
-        case ModalView.Connecting:
-          // Decide a tailored message if it's a WalletConnect flow
+        case ModalView.Connecting: {
+          const walletName = currentWalletData?.prettyName ?? '';
+          const walletLogo = currentWalletData?.logo?.toString() ?? '';
           let subtitle: string;
-          if (currentWalletData!?.mode === 'wallet-connect') {
-            subtitle = `Approve ${currentWalletData!.prettyName} connection request on your mobile device.`;
+          let title = 'Requesting Connection';
+          if (currentWalletData?.name && isWeb3AuthWallet(currentWalletData.name)) {
+            title = isMobile ? 'Redirecting...' : 'Connecting...';
+            subtitle = isMobile
+              ? `You will be redirected to sign in with ${walletName}.`
+              : `Complete the ${walletName} sign-in in the popup window.`;
+          } else if (currentWalletData?.mode === 'wallet-connect') {
+            subtitle = `Approve ${walletName} connection request on your mobile device.`;
           } else {
-            subtitle = `Open the ${
-              currentWalletData!?.prettyName
-            } browser extension to connect your wallet.`;
+            subtitle = `Open the ${walletName} browser extension to connect your wallet.`;
           }
           return (
             <Connecting
               onClose={onCloseModal}
               onReturn={() => setCurrentView(ModalView.WalletList)}
-              name={currentWalletData?.prettyName!}
-              logo={currentWalletData?.logo!.toString() ?? ''}
-              title="Requesting Connection"
+              name={walletName}
+              logo={walletLogo}
+              title={title}
               subtitle={subtitle}
             />
           );
+        }
 
         case ModalView.QRCode:
           return (
