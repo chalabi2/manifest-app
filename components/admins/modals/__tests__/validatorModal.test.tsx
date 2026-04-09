@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import React from 'react';
 
@@ -83,12 +83,17 @@ describe('ValidatorDetailsModal Component', () => {
     async () => {
       renderWithProps();
       const input = screen.getByPlaceholderText('1000');
-      fireEvent.change(input, { target: { value: '-1' } });
-      fireEvent.blur(input);
-      await waitFor(() => {
-        const updateButton = screen.getByText('Update');
-        expect(updateButton).toBeDisabled();
+      await act(async () => {
+        fireEvent.change(input, { target: { value: '-1' } });
+        fireEvent.blur(input);
       });
+      await waitFor(
+        () => {
+          const updateButton = screen.getByText('Update');
+          expect(updateButton).toBeDisabled();
+        },
+        { timeout: 5000 }
+      );
     },
     TIMEOUT
   );

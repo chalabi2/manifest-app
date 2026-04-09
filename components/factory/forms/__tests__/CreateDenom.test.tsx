@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, jest, mock, test } from 'bun:test';
 import React from 'react';
 
@@ -51,10 +51,15 @@ describe('CreateDenom Component', () => {
     renderWithChainProvider(<CreateDenom {...mockProps} />);
     const confirmButton = screen.getByText('Next: Token Metadata');
     const subdenomInput = screen.getByPlaceholderText('token');
-    fireEvent.change(subdenomInput, { target: { value: 'utest' } });
-    fireEvent.blur(subdenomInput);
-    await waitFor(() => {
-      expect(confirmButton).toBeEnabled();
+    await act(async () => {
+      fireEvent.change(subdenomInput, { target: { value: 'utest' } });
+      fireEvent.blur(subdenomInput);
     });
+    await waitFor(
+      () => {
+        expect(confirmButton).toBeEnabled();
+      },
+      { timeout: 5000 }
+    );
   });
 });

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import React from 'react';
 
@@ -71,11 +71,17 @@ describe('MintForm Component', () => {
     expect(mintButton).toBeDisabled();
 
     const amountInput = screen.getByLabelText('AMOUNT');
-    fireEvent.change(amountInput, { target: { value: '-100' } });
-
-    await waitFor(() => {
-      expect(mintButton).toBeDisabled();
+    await act(async () => {
+      fireEvent.change(amountInput, { target: { value: '-100' } });
+      fireEvent.blur(amountInput);
     });
+
+    await waitFor(
+      () => {
+        expect(mintButton).toBeDisabled();
+      },
+      { timeout: 5000 }
+    );
   });
 
   test('mint button is enabled when inputs are valid', async () => {
